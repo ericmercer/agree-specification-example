@@ -11,8 +11,6 @@ Such contracts represent an implementation for the component.
 SPLAT proves such implementations correct against additional guarantees that represents properties of the component behavior, and it then synthesizes the CakeML from the code contract.
 The synthesized CakeML includes a proof certificate that the resulting CakeML exactly preserves the meaning of the AGREE code-contract. 
 
-# Files
-
 # Obtaining the Tools
 
 BriefCASE is a fully integrated OSATE plug-in and can be installed on most systems what include a Java Runtime at version 11 or greater. The install script, depending on download speeds, takes minutes to install with most the time spent downloading Osate:
@@ -23,7 +21,40 @@ BriefCASE is a fully integrated OSATE plug-in and can be installed on most syste
 
 All the scripts require a network connection, `curl`, and a Java Runtime of 11 or greater. Please note that while the AGREE analysis works in all platforms, SPLAT only runs on Linux in the current distribution.
 
-# Example and Tool Overview
+# Running AGREE and SPAT
+
+There is an existing an existing OSATE project defined for the example (see `.project`). 
+The project can be imported into the OSATE workspace as an existing project by selecting the directory in the dialogue box. 
+Once the project is opened, AGREE and SPAT can be used.
+
+AGREE is invoked from BriefCASE by first selecting an implementation, and then with either the context menu on a right-click or the actual menu.
+The context menu is `AGREE`, and then `Verify Single Layer`. The actual menu is `Analysis`, `AGREE`, and then `Verify Single Layer`.
+Here are the components for which AGREE was used:
+
+  * Components in `SW.aadl`
+
+    * `SW.Impl`: non-cyber hardened software implementation
+    * `SW.cyber_Impl`: cyber hardened with filter and monitor software implementation
+    * `SWSystem.cyber_Impl`: BriefCASE transformed for seL4 cyber hardened software implementation (each thread is in its own process for scheduling on the seL4 verified micro-kernel)
+
+  * Components in `MonitorTest.aadl`
+
+    * `should_doNothing_when_noInput.test`
+    * `should_alertAndNotOutput_when_responseWithoutRequest.test`
+    * `should_notAlertAndOutput_when_responseAndRequest.test`
+    * `should_notAlertAndOutput_when_responseOneStepAfterRequest.test`
+    * `should_alertAndNotOutput_when_noResponseOneStepAfterRequest.test`
+    * `should_passAgree_when_allBehaviorsAssumedAndGuaranteed.test` (correctness example for a **code contract**)
+
+  * Components in `AlternativeTestFrom.aadl`
+
+    * `Monitor_Thr.Impl`: separates the implementation from the contract (alternative from of a **code contract**)
+    * `CASE_Monitor_Thr.Impl`: some code contract but with a top-level contract that has weaker properties leaning aspects of alert underspecified
+
+SPLAT is run from the context menu or top-level menu with `BriefCASE`, `CyberResiliency`, `Synthesis Tools`, and then `Run SPLAT`.
+Synthesis only works on the Linux distribution.
+
+# Example Overview
 
 The model is an AADL architectural model of a software system (SW) for route planning and automated control of a UAV.
 The system receives an automation request that is forwarded to a third-party route planner (AI).
@@ -61,3 +92,14 @@ These results, however, are only valid under additional assumptions on the deplo
   * an appropriate schedule exists to sequence component execution following the dependent data-flow in the design; and
   * the communication fabric stitching components together works in harmony with the schedule.
 
+## Files
+
+  * `AI.aadl`: untrusted route planner with its AGREE specification
+  * `AlternativeTestForms.aadl`: an example of an alternative form, contrasting with the test form, for separating out the component code-contract from the properties of the code contract for test and verification (not for synthesis)
+  * `Filter.aadl`: high-assurance filter component inserted by BriefCASE with its AGREE specification
+  * `Messages.aadl`: message format definitions
+  * `Monitor.aadl`: high-assurance monitor component inserted by BriefCASE with its AGREE specification
+  * `MonitorTests.aadl`: defined tests for the monitor code contract that give black-box coverage and branch coverage on the code contract (preferred from of code contract testing)
+  * `NoOutput.aadl`: dummy component to generate no output on the alert in the unhardened system
+  * `SW.aadl`: the unhardened and hardened software implementations including an implementation appropriate for the seL4 verified micro-kernel
+  * `WaypointManager.aadl`: the legacy waypoint manager with its non-mutable AGREE specification

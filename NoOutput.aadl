@@ -1,0 +1,23 @@
+package NoOutput
+public
+  ---------------
+  -- No Output --
+  ---------------
+  thread noOutput
+  	features
+  	  Output: out event port;
+  	annex agree {**
+  	  guarantee "Never output" :
+        not event(Output);
+  	**};
+  end noOutput;
+  
+  thread implementation noOutput.Impl
+  	properties
+      Dispatch_Protocol => Periodic;
+      Period => 500ms;
+      Compute_Execution_Time => 2ms .. 2ms;
+      Stack_Size => 65536 bytes;
+      Source_text => ("src/noOutput.c");
+  end noOutput.Impl;
+end NoOutput;

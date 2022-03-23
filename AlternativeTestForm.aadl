@@ -1,0 +1,115 @@
+package AlternativeTestForm
+public
+  with AGREE_PLTL;
+  renames AGREE_PLTL::all;
+  
+  with Messages;
+  renames Messages::all;
+	
+  thread Monitor_Thr
+    features
+      Response: in event data port AutomationResponse.Impl;
+      Request: in event data port AutomationRequest.Impl;
+      Alert: out event port;
+      Output: out event data port AutomationResponse.Impl;
+    annex agree {**
+      eq rsp : bool = event(Response);
+      eq req : bool = event(Request);
+      
+      assume "One automation request in flight at a time" :
+        true -> (req => pre(Historically(not req) or Since(not req, rsp))); 
+     
+      guarantee "Output the response when not alerting" :
+      	if (not event(Alert) and event(Response)) then 
+      	  event(Output) and Output = Response
+      	else 
+      	  not event(Output);
+      
+      eq isAlert : bool = (rsp and not req) ->
+        (   (pre(req and not rsp) and not rsp)
+         or (rsp and (not req) and pre(not req or (req and rsp)))
+         or Once(event(Alert)));
+         
+      guarantee "Alert late response, orphaned response, or pre-state alert" :
+      	event(Alert) = isAlert;
+    **};
+  end Monitor_Thr;
+
+  thread implementation Monitor_Thr.Impl
+  	annex agree {**
+      const is_latched : bool = true;
+      const MAX_LATENCY : int = 1;
+      
+      eq isPending : bool = Since(not rsp, req and not rsp);
+      eq latency : int = 0 -> (if req then 0 else pre(latency) + 1);
+      
+      eq policy : bool = (rsp => req) ->
+                         (    (isPending => latency < MAX_LATENCY)   
+                          and (rsp => (req or pre(isPending))));
+      eq alert : bool = (not policy) -> 
+                        ((is_latched and pre(alert)) or not policy);
+                                          
+  	  assert event(Alert) = alert;
+  	  assert 
+  	    if (not(alert) and rsp) then
+          event(Output) and (Output = Response)
+        else
+          not (event(Output));    
+  	**};
+  end Monitor_Thr.Impl;
+
+  ----------------------
+  -- Weaker Contract  --
+  ----------------------
+  thread CASE_Monitor_Thr
+    features
+      Response: in event data port AutomationResponse.Impl;
+      Request: in event data port AutomationRequest.Impl;
+      Alert: out event port;
+      Output: out event data port AutomationResponse.Impl;
+    annex agree {**
+      const is_latched : bool = true;
+      const MAX_LATENCY : int = 1;
+      
+      eq rsp : bool = event(Response);
+      eq req : bool = event(Request);
+      
+      assume "One automation request in flight at a time" :
+        true -> (req => pre(Historically(not req) or Since(not req, rsp))); 
+     
+      guarantee "Output the response when not alerting" :
+      	if (not event(Alert) and event(Response)) then 
+      	  event(Output) and Output = Response
+      	else 
+      	  not event(Output);                      
+      guarantee "Alert if no response within one cycle of request" :
+       	true -> 
+       	((pre(req and not rsp) and not rsp) => event(Alert));
+      guarantee "Alert if response without a request" :
+      	(rsp and not req) => event(Alert) ->
+      	(rsp and (not req) and (not pre(req))) => event(Alert);
+      guarantee "Once alerted always alerted" :
+        Once(event(Alert)) => event(Alert);
+    **};
+  end CASE_Monitor_Thr;
+
+  thread implementation CASE_Monitor_Thr.Impl
+  	annex agree {**
+      eq isPending : bool = Since(not rsp, req and not rsp);
+      eq latency : int = 0 -> (if req then 0 else pre(latency) + 1);
+      
+      eq policy : bool = (rsp => req) ->
+                         (    (isPending => latency < MAX_LATENCY)   
+                          and (rsp => (req or pre(isPending))));
+      eq alert : bool = (not policy) -> 
+                        ((is_latched and pre(alert)) or not policy);
+                                          
+  	  assert event(Alert) = alert;
+  	  assert 
+  	    if (not(alert) and rsp) then
+          event(Output) and (Output = Response)
+        else
+          not (event(Output));    
+  	**};
+  end CASE_Monitor_Thr.Impl;
+end AlternativeTestForm;

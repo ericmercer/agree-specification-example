@@ -1,0 +1,244 @@
+package SW
+public
+  with Messages;
+  renames Messages::all;
+  with AI;
+  renames AI::all;
+  with WaypointManager;
+  renames WaypointManager::all;
+  with Filter;
+  renames Filter::all;
+  with Monitor;
+  renames Monitor::all;
+  with NoOutput;
+  renames NoOutput::all;
+
+  with HAMR;
+  with CASE_Scheduling;
+
+  with AGREE_PLTL;
+  renames AGREE_PLTL::all;
+
+  -------------
+  -- Process --
+  -------------
+  process SW
+    features
+      AutomationRequest: in event data port AutomationRequest.Impl;
+      AirVehicleLocation: in event data port Waypoint.Impl;
+      Waypoint: out event data port Waypoint.Impl;
+      Start: out event port;
+      Alert: out event port;
+    annex agree {**            
+      eq req : bool = event(AutomationRequest);
+      eq avl : bool = event(AirVehicleLocation);
+      eq wp : bool = event(Waypoint);
+      eq strt: bool = event(Start);
+      eq alrt : bool = event(Alert);
+      
+      assume "Automation requests are well-formed" :
+        req => WELL_FORMED_AUTOMATION_REQUEST(AutomationRequest);
+      assume "Air vehicle locations are well-formed" :
+        avl => WELL_FORMED_WAYPOINT(AirVehicleLocation);    
+      assume "One automation request in flight at a time" :
+      	true -> (req => pre(Historically(not req) or Since(not req, strt)));
+           
+      guarantee "Waypoints coincide with air vehicle locations":
+        wp => avl;
+      guarantee "Starts include a new waypoint" :
+        strt => wp;
+      guarantee "Waypoints are well-formed" : 
+        wp => WELL_FORMED_WAYPOINT(Waypoint);
+      guarantee "Starts occur within one cycle of requests if not alerting" :
+        (strt => ((not alrt) and req)) -> 
+        (strt => ((not alrt) and (req or pre(req))));
+      guarantee "Alert if not started within one cycle of requests" :
+       	true -> ((pre(req and not strt) and not strt) => alrt);
+      guarantee "Once alerted always alerted" :
+        Once(alrt) => alrt;
+    **};
+  end SW;
+    
+  ----------------------------
+  -- Process Implementation --
+  ----------------------------
+  process implementation SW.Impl
+    subcomponents
+      AI: thread AI_Thr.Impl;
+      WM: thread WaypointManager_Thr.Impl;
+      ALRT : thread noOutput.Impl;
+    connections
+      --------------------
+      -- Primary Inputs --
+      --------------------
+      c01: port AutomationRequest -> AI.AutomationRequest;
+      c03: port AirVehicleLocation -> AI.AirVehicleLocation;
+      c04: port AirVehicleLocation -> WM.AirVehicleLocation;
+
+      ----------
+      --  AI  --
+      ----------
+      c05: port AI.AutomationResponse -> WM.AutomationResponse;
+
+      ---------
+      -- WM --
+      ---------
+      c06: port WM.Waypoint -> Waypoint;
+      c07: port WM.Start -> Start;
+
+      ----------
+      -- ALRT --
+      ----------
+      c08: port ALRT.Output -> Alert;
+    annex resolute {**
+      check HAMR_Guidelines
+    **};
+  end SW.Impl;
+    
+  ------------------------------------------
+  -- Cyber-assured Process Implementation --
+  ------------------------------------------
+  process implementation SW.cyber_Impl
+    subcomponents
+      AI: thread AI_Thr.Impl;
+      WM: thread WaypointManager_thr.Impl;
+      Filter: thread CASE_Filter_Thr.Impl;
+      Monitor: thread CASE_Monitor_Thr.Impl;
+    connections
+      --------------------
+      -- Primary Inputs --
+      --------------------
+      c01: port AutomationRequest -> AI.AutomationRequest;
+      c03: port AirVehicleLocation -> AI.AirVehicleLocation;
+      c04: port AirVehicleLocation -> WM.AirVehicleLocation;
+
+      ----------
+      --  AI  --
+      ----------
+      c05: port AI.AutomationResponse -> Filter.Input;
+
+      ---------
+      -- WM --
+      ---------
+      c06: port WM.Waypoint -> Waypoint;
+      c07: port WM.Start -> Start;
+
+      -------------------------------
+      -- High-assurance Components --
+      -------------------------------
+      c2: port Filter.Output -> Monitor.Response;
+      c3: port AutomationRequest -> Monitor.Request;
+      c4: port Monitor.Output -> WM.AutomationResponse;
+      c5: port Monitor.Alert -> Alert;
+  end SW.cyber_Impl;
+    
+  ------------
+  -- System --
+  ------------    
+  system SWSystem
+    features
+      AutomationRequest: in event data port AutomationRequest.Impl;
+      AirVehicleLocation: in event data port Waypoint.Impl;
+      Waypoint: out event data port Waypoint.Impl;
+      Start: out event port;
+      Alert: out event port;
+    annex agree {**   
+      eq req : bool = event(AutomationRequest);
+      eq avl : bool = event(AirVehicleLocation);
+      eq wp : bool = event(Waypoint);
+      eq strt: bool = event(Start);
+      eq alrt : bool = event(Alert);
+      
+      assume "Automation requests are well-formed" :
+        req => WELL_FORMED_AUTOMATION_REQUEST(AutomationRequest);
+      assume "Air vehicle locations are well-formed" :
+        avl => WELL_FORMED_WAYPOINT(AirVehicleLocation);    
+      assume "One automation request in flight at a time" :
+      	true -> (req => pre(Historically(not req) or Since(not req, strt)));
+           
+      guarantee "Waypoints coincide with air vehicle locations":
+        wp => avl;
+      guarantee "Starts include a new waypoint" :
+        strt => wp;
+      guarantee "Waypoints are well-formed" : 
+        wp => WELL_FORMED_WAYPOINT(Waypoint);
+      guarantee "Starts occur within one cycle of requests if not alerting" :
+        (strt => ((not alrt) and req)) -> 
+        (strt => ((not alrt) and (req or pre(req))));
+      guarantee "Alert if not started within one cycle of requests" :
+       	true -> ((pre(req and not strt) and not strt) => alrt);
+      guarantee "Once alerted always alerted" :
+        Once(alrt) => alrt;
+    **};
+  end SWSystem;
+
+  -----------------------------------------
+  -- Cyber-assured System Implementation --
+  -----------------------------------------
+
+  ----------------------------------------------------------------------
+  processor proc
+  end proc;
+
+  processor implementation Proc.Impl
+    properties
+      Frame_Period => 1000ms;
+      Clock_Period => 2ms;
+      CASE_Scheduling::Max_Domain => 6;
+      CASE_Scheduling::Schedule_Source_Text => "src/domain_schedule.c";
+  end Proc.Impl;
+  ----------------------------------------------------------------------
+    
+  system implementation SWSystem.cyber_Impl
+    subcomponents
+      PROC: processor Proc.Impl;
+      AI: process AI.Impl;
+      WM: process WaypointManager.Impl;
+      Filter: process CASE_Filter.Impl;
+      Monitor: process CASE_Monitor.Impl;
+    connections
+      --------------------
+      -- Primary Inputs --
+      --------------------
+      c01: port AutomationRequest -> AI.AutomationRequest;
+      c02: port AutomationRequest -> Monitor.Request;
+      c03: port AirVehicleLocation -> AI.AirVehicleLocation;
+      c04: port AirVehicleLocation -> WM.AirVehicleLocation;
+
+      ----------
+      --  AI  --
+      ----------
+      c05: port AI.AutomationResponse -> Filter.Input;
+
+      ---------
+      -- WM --
+      ---------
+      c06: port WM.Waypoint -> Waypoint;
+      c07: port WM.Start -> Start;
+
+      ------------
+      -- Filter --
+      ------------
+      c08: port Filter.Output -> Monitor.Response;
+      
+      -------------
+      -- Monitor --
+      -------------
+      c09: port Monitor.Output -> WM.AutomationResponse;
+      c10: port Monitor.Alert -> Alert;
+    properties
+      Actual_Processor_Binding => (reference (Proc)) applies to AI;
+      Actual_Processor_Binding => (reference (Proc)) applies to WM;
+      Actual_Processor_Binding => (reference (Proc)) applies to Filter;
+      Actual_Processor_Binding => (reference (Proc)) applies to Monitor;
+      
+      HAMR::Default_Bit_Width => 32;
+      HAMR::Default_Max_Sequence_Size => 1;
+      HAMR::Max_String_Size => 256;
+      HAMR::Bit_Codec_Raw_Connections => true;
+      
+    annex resolute {**
+      check HAMR_Guidelines
+    **};
+  end SWSystem.cyber_Impl;
+end SW;

@@ -1,0 +1,70 @@
+package WaypointManager
+public
+  with Messages;
+  renames Messages::all;
+
+  with CASE_Scheduling;
+
+  ----------------------
+  -- Waypoint Manager --
+  ----------------------
+  thread WaypointManager_Thr
+    features
+      AutomationResponse: in event data port AutomationResponse.Impl;
+      AirVehicleLocation: in event data port Waypoint.Impl;
+      Start: out event port;
+      Waypoint: out event data port Waypoint.Impl;
+    annex agree {**     
+      eq rsp : bool = event(AutomationResponse);
+      eq wp : bool = event(Waypoint);
+      eq strt: bool = event(Start);
+      eq avl : bool = event(AirVehicleLocation);
+      
+      assume "Automation responses are well-formed" :
+        rsp => WELL_FORMED_AUTOMATION_RESPONSE(AutomationResponse);
+      assume "Air vehicle locations are well-formed" :
+        avl => WELL_FORMED_WAYPOINT(AirVehicleLocation);
+                  
+      guarantee "Waypoints coincide with air vehicle locations":
+        wp => avl;
+      guarantee "Starts mark new automation responses" :
+        strt <=> rsp;
+      guarantee "Starts include a new waypoint" :
+        strt => wp;
+      guarantee "Waypoints are well-formed" : 
+        wp => WELL_FORMED_WAYPOINT(Waypoint);
+      **};
+  end WaypointManager_Thr;
+
+  thread implementation WaypointManager_Thr.Impl
+    properties
+      Dispatch_Protocol => Periodic;
+      Period => 500ms;
+      Compute_Execution_Time => 2ms .. 2ms;
+      Stack_Size => 65536 bytes;
+      Source_text => ("src/wpm.c");
+  end WaypointManager_Thr.Impl;
+
+  process WaypointManager
+    features
+      AutomationResponse: in event data port AutomationResponse.Impl;
+      AirVehicleLocation: in event data port Waypoint.Impl;
+      Start: out event port;
+      Waypoint: out event data port Waypoint.Impl;
+  end WaypointManager;
+
+  process implementation WaypointManager.Impl
+    subcomponents
+      WaypointManager: thread WaypointManager_Thr.Impl;
+    connections
+      c01: port AutomationResponse -> WaypointManager.AutomationResponse;
+      c02: port AirVehicleLocation -> WaypointManager.AirVehicleLocation;
+      c03: port WaypointManager.Start -> Start;
+      c04: port WaypointManager.Waypoint -> Waypoint;
+    properties
+      CASE_Scheduling::Domain => 5;       
+    annex agree {**
+      lift contract;
+    **};
+  end WaypointManager.Impl;
+end WaypointManager;

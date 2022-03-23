@@ -1,0 +1,58 @@
+package Filter
+public
+  with Messages;
+  renames Messages::all;
+  
+  with CASE_Properties;
+  with CASE_Scheduling;
+
+  ----------------------------------------
+  -- Automation Response message Filter --
+  ----------------------------------------
+  thread CASE_Filter_Thr
+    features
+      Input: in event data port AutomationResponse.Impl;
+      Output: out event data port AutomationResponse.Impl;
+    properties
+      CASE_Properties::Filtering => 100;
+      CASE_Properties::Component_Spec => ("Output");
+    annex agree {**
+      eq policy : bool = 
+        WELL_FORMED_AUTOMATION_RESPONSE(Input);
+     
+      guarantee Filter_Output
+        "Filter output is well-formed" :
+        if event(Input) and policy then 
+          event(Output) and Output = Input
+        else not event(Output);
+    **};
+  end CASE_Filter_Thr;
+
+  thread implementation CASE_Filter_Thr.Impl
+    properties
+      Dispatch_Protocol => Periodic;
+      Period => 500ms;
+      Compute_Execution_Time => 2ms .. 2ms;
+      Stack_Size => 65536 bytes;
+      Source_text => ("src/CASE_Filter_Thr.c");
+  end CASE_Filter_Thr.Impl;
+
+  process CASE_Filter
+    features
+      Input: in event data port AutomationResponse.Impl;
+      Output: out event data port AutomationResponse.Impl;
+  end CASE_Filter;
+
+  process implementation CASE_Filter.Impl
+    subcomponents
+      CASE_Filter: thread CASE_Filter_Thr.Impl;
+    connections
+      c1: port Input -> CASE_Filter.Input;
+      c2: port CASE_Filter.Output -> Output;
+    properties
+      CASE_Scheduling::Domain => 3;
+    annex agree {**
+      lift contract;
+    **};
+  end CASE_Filter.Impl;
+end Filter;

@@ -1,0 +1,57 @@
+package AI
+public
+  with Messages;
+  renames Messages::all;
+
+  with CASE_Scheduling;
+
+  ----------
+  -- AI --
+  ----------
+  thread AI_Thr
+    features
+      AutomationRequest: in event data port AutomationRequest.Impl;
+      AirVehicleLocation: in event data port Waypoint.Impl;
+      AutomationResponse: out event data port AutomationResponse.Impl;
+    annex agree {**
+      eq req : bool = event(AutomationRequest);
+      eq avl : bool = event(AirVehicleLocation);
+      eq rsp : bool = event(AutomationResponse);
+          
+      assume "Automation requests are well-formed" :
+          req => WELL_FORMED_AUTOMATION_REQUEST(AutomationRequest);
+      assume "Air vehicle locations are well-formed" : 
+          avl => WELL_FORMED_WAYPOINT(AirVehicleLocation);
+    **};
+  end AI_Thr;
+
+  thread implementation AI_Thr.Impl
+    properties
+      Dispatch_Protocol => Periodic;
+      Period => 500ms;
+      Compute_Execution_Time => 2ms .. 2ms;
+      Stack_Size => 65536 Bytes;
+      Source_text => ("third-party");
+  end AI_Thr.Impl;
+
+  process AI
+    features
+      AutomationRequest : in event data port AutomationRequest.Impl;
+      AirVehicleLocation : in event data port Waypoint.Impl;
+      AutomationResponse : out event data port AutomationResponse.Impl;
+  end AI;
+
+  process implementation AI.Impl
+    subcomponents
+      AI: thread AI_Thr.Impl;
+    connections
+      c01: port AutomationRequest -> AI.AutomationRequest;
+      c02: port AirVehicleLocation -> AI.AirVehicleLocation;
+      c03: port AI.AutomationResponse -> AutomationResponse;
+    properties
+      CASE_Scheduling::Domain => 2;
+    annex agree {**
+      lift contract;
+    **};
+  end AI.Impl;
+end AI;

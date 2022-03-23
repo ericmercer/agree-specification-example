@@ -1,0 +1,65 @@
+package Messages
+public
+  with Base_Types;
+  renames Base_Types::all;
+  with HAMR;
+
+  --------------
+  -- Waypoint --
+  --------------
+  data Waypoint
+  end Waypoint;
+
+  data implementation Waypoint.Impl
+    subcomponents
+      Latitude: data Float_64;
+      Longitude: data Float_64;
+      Altitude: data Float_32;
+  end Waypoint.Impl;
+
+  ------------------------
+  -- Automation Request --
+  ------------------------
+  data AutomationRequest
+  end AutomationRequest;
+
+  data implementation AutomationRequest.Impl
+      subcomponents
+        TaskID: data Integer_64;
+      properties
+        HAMR::Bit_Codec_Max_Size => 128 bits;
+  end AutomationRequest.Impl;
+  
+  ------------------------
+  -- AutomationResponse --
+  ------------------------
+  data AutomationResponse
+  end AutomationResponse;
+
+  data implementation AutomationResponse.Impl
+    subcomponents
+      TaskID: data Integer_64;
+      Length: data Unsigned_8;
+      Waypoints: data Waypoint.Impl[3];
+    properties
+      HAMR::Bit_Codec_Max_Size => 1664 bits;
+  end AutomationResponse.Impl;
+
+  ---------------------
+  -- AGREE Functions --
+  ---------------------
+  annex agree {**	
+    const TASK_ID : int = 42;
+    fun WELL_FORMED_WAYPOINT(point : Waypoint.Impl) : bool =
+                        (point.Latitude >= -90.0 and point.Latitude <= 90.0)
+                    and (point.Longitude >= -180.0 and point.Longitude <= 180.0) 
+                    and (point.Altitude >= 10000.0 and point.Altitude <= 15000.0);
+    fun WELL_FORMED_TASK_ID(id : int) : bool =
+                (id = TASK_ID);
+    fun WELL_FORMED_AUTOMATION_REQUEST(msg : AutomationRequest.Impl) : bool =
+                        WELL_FORMED_TASK_ID(msg.TaskID);
+    fun WELL_FORMED_AUTOMATION_RESPONSE(msg : AutomationResponse.Impl) : bool =
+                        (WELL_FORMED_TASK_ID(msg.TaskID))
+                    and (forall waypoint in msg.Waypoints, WELL_FORMED_WAYPOINT(waypoint));
+  **};
+end Messages;

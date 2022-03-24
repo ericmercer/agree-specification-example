@@ -52,7 +52,10 @@ Here are the components for which AGREE was used:
     * `CASE_Monitor_Thr.Impl`: some code contract but with a top-level contract that has weaker properties leaning aspects of alert underspecified
 
 SPLAT is run from the context menu or top-level menu with `BriefCASE`, `CyberResiliency`, `Synthesis Tools`, and then `Run SPLAT`.
-Synthesis only works on the Linux distribution.
+Synthesis only works on the Linux distribution. The synthesized CakeML is included here for convenience:
+
+  * `splat/SW_CASE_Filter_Thr.cml`: synthesized CakeML for the filter
+  * `splat/SW_CASE_Monitor_Thr.cml`: synthesized CakeML for the monitor
 
 # Example Overview
 

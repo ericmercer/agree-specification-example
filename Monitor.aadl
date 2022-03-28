@@ -35,12 +35,13 @@ public
       const is_latched : bool = true;
       const MAX_LATENCY : int = 1;
       
+      eq preIsPending : bool = pre(isPending);
       eq isPending : bool = Since(not rsp, req and not rsp);
       eq latency : int = 0 -> (if req then 0 else pre(latency) + 1);
      
       eq policy : bool = (rsp => req) ->
                          (    (isPending => latency < MAX_LATENCY)   
-                          and (rsp => (req or pre(isPending))));
+                          and (rsp => (req or preIsPending)));
       eq alert : bool = (not policy) -> 
                         ((is_latched and pre(alert)) or not policy);
      	                        

@@ -35,7 +35,7 @@ public
       const is_latched : bool = true;
       const MAX_LATENCY : int = 1;
       
-      eq preIsPending : bool = pre(isPending);
+      eq preIsPending : bool = false -> pre(isPending);
       eq isPending : bool = Since(not rsp, req and not rsp);
       eq latency : int = 0 -> (if req then 0 else pre(latency) + 1);
      

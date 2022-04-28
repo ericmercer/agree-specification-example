@@ -20,7 +20,6 @@ public
       Output: out event data port AutomationResponse.Impl;
     properties
       CASE_Properties::Monitoring => 100;
-      CASE_Properties::Component_Spec => ("Alert", "Output");
       CASE_Properties::Monitor_Latched => true;
     annex agree {**
       eq rsp : bool = event(Response);

@@ -28,7 +28,7 @@ public
       -- Inline of Since(not req, rsp)
       eq notReqSinceRsp : bool = rsp or 
                                  ((not req) and (false -> pre(notReqSinceRsp)));
-      eq preHistNotReqOrNotReqSinceRsp : bool = pre(histNotReqOrNotReqSinceRsp);
+      eq preHistNotReqOrNotReqSinceRsp : bool = true -> pre(histNotReqOrNotReqSinceRsp);
       eq histNotReqOrNotReqSinceRsp : bool = 
         Historically(not req) or notReqSinceRsp;
 

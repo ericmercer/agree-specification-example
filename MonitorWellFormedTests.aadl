@@ -203,4 +203,32 @@ public
   	  c02: port Monitor.Alert -> Alert;
   	  c03: port Monitor.Output -> Output;
   end should_passAgree_when_allBehaviorsAssumedAndGuaranteed.test;
+
+    process should_failAssume_when_twoConsecutiveRequests
+    features
+        Response: in event data port AutomationResponse.Impl;
+        Request: in event data port AutomationRequest.Impl;
+        Alert: out event port;
+        Output: out event data port AutomationResponse.Impl;
+    annex agree {**
+      eq index : int = prev(index + 1, 0);
+      
+      assume "No response" :
+        event(Response) = false;
+      assume "Two consecutive requests" :
+      	    ((index = 0) => (event(Request) = true))
+        and ((index = 1) => (event(Request) = true))
+        and ((index >= 2) => (event(Request) = false));
+    **};
+    end should_failAssume_when_twoConsecutiveRequests;
+
+    process Implementation should_failAssume_when_twoConsecutiveRequests.test
+    subcomponents
+        Monitor: thread CASE_Monitor_Thr.Impl;
+    connections
+        c00: port Response -> Monitor.Response;
+        c01: port Request -> Monitor.Request;
+        c02: port Monitor.Alert -> Alert;
+        c03: port Monitor.Output -> Output;
+    end should_failAssume_when_twoConsecutiveRequests.test;
 end MonitorWellFormedTests;

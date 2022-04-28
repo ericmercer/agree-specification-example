@@ -1,0 +1,100 @@
+package MonitorWellFormed
+public
+  with Messages;
+  renames Messages::all;
+
+  with CASE_Properties;
+  with CASE_Scheduling;
+
+  with AGREE_PLTL;
+  renames AGREE_PLTL::all;
+
+  ------------------------------
+  -- Bounded Response Monitor --
+  ------------------------------
+  thread CASE_Monitor_Thr
+    features
+      Response: in event data port AutomationResponse.Impl;
+      Request: in event data port AutomationRequest.Impl;
+      Alert: out event port;
+      Output: out event data port AutomationResponse.Impl;
+    properties
+      CASE_Properties::Monitoring => 100;
+      CASE_Properties::Component_Spec => ("Alert", "Output");
+      CASE_Properties::Monitor_Latched => true;
+    annex agree {**
+      eq rsp : bool = event(Response);
+      eq req : bool = event(Request);
+      
+      -- Inline of Since(not req, rsp)
+      eq notReqSinceRsp : bool = rsp or 
+                                 ((not req) and (false -> pre(notReqSinceRsp)));
+      eq preHistNotReqOrNotReqSinceRsp : bool = pre(histNotReqOrNotReqSinceRsp);
+      eq histNotReqOrNotReqSinceRsp : bool = 
+        Historically(not req) or notReqSinceRsp;
+        
+      assume "One automation request in flight at a time" :
+        true -> (req => preHistNotReqOrNotReqSinceRsp);
+      
+      ------------------------------
+      -- Component Implementation --
+      ------------------------------
+      const is_latched : bool = true;
+      const MAX_LATENCY : int = 1;
+      
+      eq preIsPending : bool = false -> pre(isPending);
+      -- Inline of Since(not rsp, req and not rsp);
+      eq isPending : bool = (req and not rsp) or 
+                            ((not rsp) and (false -> pre(isPending)));
+      eq latency : int = 0 -> (if req then 0 else pre(latency) + 1);
+     
+      eq policy : bool = (rsp => req) ->
+                         (    (isPending => latency < MAX_LATENCY)   
+                          and (rsp => (req or preIsPending)));
+      eq alert : bool = (not policy) -> 
+                        ((is_latched and pre(alert)) or not policy);
+     	                        
+      guarantee "Alert port tracks alert variable" :
+        event(Alert) = alert;
+      guarantee "Output if not alerted" :
+        if (not(alert) and rsp) then
+          event(Output) and (Output = Response)
+        else
+          not (event(Output));
+    **};
+  end CASE_Monitor_Thr;
+
+  thread implementation CASE_Monitor_Thr.Impl
+    properties            
+      Dispatch_Protocol => Periodic;
+      Period => 500ms;
+      Compute_Execution_Time => 2ms .. 2ms;
+      Stack_Size => 65536 bytes;
+      Source_text => ("src/CASE_Monitor.c");
+  end CASE_Monitor_Thr.Impl;
+
+  process CASE_Monitor
+    features
+      Response: in event data port AutomationResponse.Impl;
+      Request: in event data port AutomationRequest.Impl;
+      Alert: out event port;
+      Output: out event data port AutomationResponse.Impl;
+    properties
+      CASE_Properties::Monitor_Latched => true;
+  end CASE_Monitor;
+
+  process implementation CASE_Monitor.Impl
+    subcomponents
+      CASE_Monitor: thread CASE_Monitor_Thr.Impl;
+    connections
+      c01: port Response -> CASE_Monitor.Response;
+      c02: port Request -> CASE_Monitor.Request;
+      c03: port CASE_Monitor.Alert -> Alert;
+      c04: port CASE_Monitor.Output -> Output;
+    properties
+      CASE_Scheduling::Domain => 4;
+    annex agree {**
+      lift contract;
+    **};
+  end CASE_Monitor.Impl;
+end MonitorWellFormed;

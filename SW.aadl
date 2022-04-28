@@ -8,8 +8,8 @@ public
   renames WaypointManager::all;
   with Filter;
   renames Filter::all;
-  with Monitor;
-  renames Monitor::all;
+  with MonitorWellFormed;
+  renames MonitorWellFormed::all;
   with NoOutput;
   renames NoOutput::all;
 
